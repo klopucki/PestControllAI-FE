@@ -1,0 +1,53 @@
+{
+  "common": {
+    "save": "Zapisz",
+    "edit": "Edytuj",
+    "delete": "Usuń",
+    "restore": "Przywróć",
+    "cancel": "Anuluj",
+    "loading": "Ładowanie...",
+    "error": "Błąd",
+    "darkMode": "Tryb Ciemny"
+  },
+  "auth": {
+    "login": "Zaloguj się",
+    "register": "Zarejestruj się",
+    "email": "E-mail",
+    "password": "Hasło",
+    "welcome": "Witaj ponownie!",
+    "no_account": "Nie masz konta? Zarejestruj się",
+    "have_account": "Masz już konto? Zaloguj się"
+  },
+  "navigation": {
+    "home": "Moje Posesje 🏠",
+    "details": "Szczegóły Posesji",
+    "notifications": "Powiadomienia",
+    "statistics": "Statystyki",
+    "add_property": "Dodaj Nową Posesję",
+    "edit_property": "Edytuj Posesję"
+  },
+  "property": {
+    "name": "Nazwa posesji",
+    "address": "Adres",
+    "description": "Dodatkowe informacje",
+    "show_deleted": "Pokaż usunięte",
+    "devices": "Urządzenia (IoT)",
+    "add_device": "Dodaj nowe urządzenie"
+  },
+  "device": {
+    "camera": "Kamera",
+    "microphone": "Mikrofon",
+    "sensor": "Czujnik Ruchu",
+    "trap": "Pułapka",
+    "active": "AKTYWNE",
+    "alert": "ALERT",
+    "listening": "Nasłuchiwanie zdarzeń",
+    "last_activity": "Ostatnia aktywność"
+  },
+  "stats": {
+    "title": "Analiza Danych",
+    "total_detections": "Wykryć (łącznie)",
+    "alerts_7d": "Alerty (7 dni)",
+    "ai_analysis": "Analiza AI 🤖"
+  }
+}

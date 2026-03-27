@@ -1,0 +1,53 @@
+{
+  "common": {
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "restore": "Restore",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Error",
+    "darkMode": "Dark Mode"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "E-mail",
+    "password": "Password",
+    "welcome": "Welcome back!",
+    "no_account": "Don't have an account? Register",
+    "have_account": "Already have an account? Login"
+  },
+  "navigation": {
+    "home": "My Properties 🏠",
+    "details": "Property Details",
+    "notifications": "Notifications",
+    "statistics": "Statistics",
+    "add_property": "Add New Property",
+    "edit_property": "Edit Property"
+  },
+  "property": {
+    "name": "Property Name",
+    "address": "Address",
+    "description": "Additional Information",
+    "show_deleted": "Show deleted",
+    "devices": "Devices (IoT)",
+    "add_device": "Add new device"
+  },
+  "device": {
+    "camera": "Camera",
+    "microphone": "Microphone",
+    "sensor": "Motion Sensor",
+    "trap": "Trap",
+    "active": "ACTIVE",
+    "alert": "ALERT",
+    "listening": "Event listening",
+    "last_activity": "Last activity"
+  },
+  "stats": {
+    "title": "Data Analysis",
+    "total_detections": "Total Detections",
+    "alerts_7d": "Alerts (7 days)",
+    "ai_analysis": "AI Analysis 🤖"
+  }
+}
