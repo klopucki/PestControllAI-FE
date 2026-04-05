@@ -1,51 +1,63 @@
 import React, {useCallback, useState} from 'react';
-import {FlatList, Image, StyleSheet, Switch, Text, TouchableOpacity, View} from 'react-native';
+import {
+    ActivityIndicator,
+    FlatList,
+    Image,
+    RefreshControl,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Device, RootStackParamList} from '../navigation/types';
 import {useTheme} from '../context/ThemeContext';
 import {useTranslation} from 'react-i18next';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {deviceApi} from '../api/deviceApi';
+import {propertyApi} from '../api/propertyApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PropertyDetail'>;
 
-// TODO: Replace with real API data
-const MOCK_DEVICES: Device[] = [
-    {
-        id: 'd1',
-        propertyId: '1',
-        name: 'Front Camera',
-        type: 'camera',
-        status: 'active',
-        isListening: true,
-        isDeleted: false,
-        imageUri: 'https://via.placeholder.com/150x100.png?text=No+Detection',
-        lastCaptureDate: '2024-03-20 12:00'
-    },
-    {
-        id: 'd2',
-        propertyId: '1',
-        name: 'Kitchen Motion Sensor',
-        type: 'sensor',
-        status: 'alert',
-        isListening: true,
-        isDeleted: false,
-        lastCaptureDate: '2024-03-20 14:30'
-    },
-];
-
 const PropertyDetailScreen = ({route, navigation}: Props) => {
     const {propertyId} = route.params;
-    const [devices, setDevices] = useState<Device[]>(MOCK_DEVICES);
     const [showDeleted, setShowDeleted] = useState(false);
     const {theme} = useTheme();
     const {t} = useTranslation();
+    const queryClient = useQueryClient();
+
+    const {
+        data: property,
+        isLoading: isPropertyLoading
+    } = useQuery({
+        queryKey: ['property', propertyId],
+        queryFn: () => propertyApi.getById(propertyId),
+    });
+
+    const {
+        data: devices = [],
+        isLoading: isDevicesLoading,
+        isError,
+        refetch
+    } = useQuery({
+        queryKey: ['devices', propertyId],
+        queryFn: () => deviceApi.getByPropertyId(propertyId),
+    });
+
+    const toggleDeleteMutation = useMutation({
+        mutationFn: ({id, isDeleted}: { id: string, isDeleted: boolean }) =>
+            deviceApi.updateStatus(id, isDeleted),
+        onSuccess: () => {
+            queryClient.invalidateQueries({queryKey: ['devices', propertyId]});
+        }
+    });
 
     const filteredDevices = devices.filter(d => showDeleted || !d.isDeleted);
 
-    const toggleDeleteDevice = useCallback((id: string) => {
-        setDevices(prev => prev.map(d =>
-            d.id === id ? {...d, isDeleted: !d.isDeleted} : d
-        ));
-    }, []);
+    const toggleDeleteDevice = useCallback((id: string, currentDeleted: boolean) => {
+        toggleDeleteMutation.mutate({id, isDeleted: !currentDeleted});
+    }, [toggleDeleteMutation]);
 
     const getDeviceIcon = (type: string) => {
         switch (type) {
@@ -78,12 +90,14 @@ const PropertyDetailScreen = ({route, navigation}: Props) => {
                 <View style={styles.deviceInfo}>
                     <Text
                         style={[styles.deviceName, {color: theme.text}, item.isDeleted && styles.deletedText]}>{item.name}</Text>
-                    <Text style={[styles.lastCapture, {color: theme.subtext}]}>{t('device.last_activity')}: {item.lastCaptureDate}</Text>
+                    <Text
+                        style={[styles.lastCapture, {color: theme.subtext}]}>{t('device.last_activity')}: {item.lastCaptureDate || 'N/A'}</Text>
                 </View>
                 {!item.isDeleted && (
                     <View
                         style={[styles.statusBadge, {backgroundColor: item.status === 'active' ? theme.secondary : theme.error}]}>
-                        <Text style={styles.statusText}>{item.status === 'active' ? t('device.active') : t('device.alert')}</Text>
+                        <Text
+                            style={styles.statusText}>{item.status === 'active' ? t('device.active') : t('device.alert')}</Text>
                     </View>
                 )}
             </View>
@@ -95,9 +109,10 @@ const PropertyDetailScreen = ({route, navigation}: Props) => {
             <View style={[styles.deviceActions, {borderTopColor: theme.border}]}>
                 <TouchableOpacity
                     style={[styles.actionButton, {backgroundColor: theme.error}, item.isDeleted && {backgroundColor: theme.secondary}]}
-                    onPress={() => toggleDeleteDevice(item.id)}
+                    onPress={() => toggleDeleteDevice(item.id, item.isDeleted)}
                 >
-                    <Text style={styles.actionButtonText}>{item.isDeleted ? t('common.restore') : t('common.delete')}</Text>
+                    <Text
+                        style={styles.actionButtonText}>{item.isDeleted ? t('common.restore') : t('common.delete')}</Text>
                 </TouchableOpacity>
 
                 {!item.isDeleted && (
@@ -112,17 +127,39 @@ const PropertyDetailScreen = ({route, navigation}: Props) => {
         </TouchableOpacity>
     ), [navigation, propertyId, toggleDeleteDevice, theme, t]);
 
+    if (isError) {
+        return (
+            <View style={[styles.center, {backgroundColor: theme.background}]}>
+                <Text style={{color: theme.text}}>{t('common.error')}</Text>
+                <TouchableOpacity
+                    style={[styles.actionButton, {backgroundColor: theme.primary, marginTop: 10}]}
+                    onPress={() => refetch()}
+                >
+                    <Text style={styles.actionButtonText}>Retry</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
     return (
         <View style={[styles.container, {backgroundColor: theme.background}]}>
             <FlatList
                 ListHeaderComponent={
                     <View style={[styles.header, {backgroundColor: theme.surface, borderBottomColor: theme.border}]}>
-                        <Text style={[styles.title, {color: theme.text}]}>ID: {propertyId}</Text>
-                        <Text style={[styles.address, {color: theme.subtext}]}>{t('property.address')}: Sample St. 123</Text>
+                        {isPropertyLoading ? (
+                            <ActivityIndicator color={theme.primary}/>
+                        ) : (
+                            <>
+                                <Text style={[styles.title, {color: theme.text}]}>{property?.name || 'Property'}</Text>
+                                <Text
+                                    style={[styles.address, {color: theme.subtext}]}>{t('property.address')}: {property?.address}</Text>
+                            </>
+                        )}
                         <View style={styles.sectionHeader}>
                             <Text style={[styles.sectionTitle, {color: theme.text}]}>{t('property.devices')}</Text>
                             <View style={styles.filterRow}>
-                                <Text style={[styles.filterLabel, {color: theme.subtext}]}>{t('property.show_deleted')}</Text>
+                                <Text
+                                    style={[styles.filterLabel, {color: theme.subtext}]}>{t('property.show_deleted')}</Text>
                                 <Switch
                                     value={showDeleted}
                                     onValueChange={setShowDeleted}
@@ -135,10 +172,15 @@ const PropertyDetailScreen = ({route, navigation}: Props) => {
                 data={filteredDevices}
                 renderItem={renderDeviceItem}
                 keyExtractor={item => item.id}
+                refreshControl={
+                    <RefreshControl refreshing={isDevicesLoading} onRefresh={refetch} tintColor={theme.primary}/>
+                }
                 ListEmptyComponent={
-                    <View style={styles.emptyDeviceBox}>
-                        <Text style={[styles.emptyText, {color: theme.subtext}]}>{t('common.loading')}</Text>
-                    </View>
+                    !isDevicesLoading && (
+                        <View style={styles.emptyDeviceBox}>
+                            <Text style={[styles.emptyText, {color: theme.subtext}]}>{t('common.noData')}</Text>
+                        </View>
+                    )
                 }
                 contentContainerStyle={styles.listContent}
             />
@@ -155,6 +197,7 @@ const PropertyDetailScreen = ({route, navigation}: Props) => {
 
 const styles = StyleSheet.create({
     container: {flex: 1},
+    center: {flex: 1, justifyContent: 'center', alignItems: 'center'},
     listContent: {paddingBottom: 100},
     header: {padding: 20, borderBottomWidth: 1},
     title: {fontSize: 22, fontWeight: 'bold'},
@@ -177,7 +220,13 @@ const styles = StyleSheet.create({
 
     deviceImage: {width: '100%', height: 150, borderRadius: 8, marginTop: 15},
     deviceActions: {marginTop: 10, borderTopWidth: 1, paddingTop: 10, flexDirection: 'row', justifyContent: 'flex-end'},
-    actionButton: {paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, marginLeft: 10},
+    actionButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+        marginLeft: 10,
+        justifyContent: 'center'
+    },
     actionButtonText: {color: '#fff', fontSize: 12, fontWeight: 'bold'},
 
     emptyDeviceBox: {padding: 40, alignItems: 'center'},

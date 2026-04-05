@@ -14,7 +14,7 @@ export type DeviceEvent = {
     deviceName: string;
     propertyName: string;
     timestamp: string;
-    type: 'motion' | 'sound' | 'capture' | 'alert';
+    eventType: 'motion' | 'sound' | 'capture' | 'alert';
     description: string;
     imageUri?: string;
 };

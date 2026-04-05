@@ -1,43 +1,52 @@
 import React, {useCallback, useState} from 'react';
-import {FlatList, StyleSheet, Switch, Text, TouchableOpacity, View} from 'react-native';
+import {
+    ActivityIndicator,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Property, RootStackParamList} from '../navigation/types';
 import {useTheme} from '../context/ThemeContext';
 import {useTranslation} from 'react-i18next';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {propertyApi} from '../api/propertyApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-// TODO: Replace with real API data
-const MOCK_PROPERTIES: Property[] = [
-    {
-        id: '1',
-        name: 'Summer House',
-        address: 'Masuria, Sniardwy Lake 5',
-        description: 'Pest monitoring for woodworms',
-        isDeleted: false
-    },
-    {
-        id: '2',
-        name: 'Krakow Apartment',
-        address: 'Florianska 10',
-        description: 'Motion and temperature sensors',
-        isDeleted: false
-    },
-];
-
 const PropertyListScreen = ({navigation}: Props) => {
-    const [properties, setProperties] = useState<Property[]>(MOCK_PROPERTIES);
     const [showDeleted, setShowDeleted] = useState(false);
-    const {theme, isDark, setMode} = useTheme();
+    const {theme} = useTheme();
     const {t} = useTranslation();
+    const queryClient = useQueryClient();
+
+    const {
+        data: properties = [],
+        isLoading,
+        isError,
+        refetch
+    } = useQuery({
+        queryKey: ['properties'],
+        queryFn: propertyApi.getAll,
+    });
+
+    const toggleDeleteMutation = useMutation({
+        mutationFn: ({id, isDeleted}: { id: string, isDeleted: boolean }) =>
+            propertyApi.updateStatus(id, isDeleted),
+        onSuccess: () => {
+            queryClient.invalidateQueries({queryKey: ['properties']});
+        }
+    });
 
     const filteredProperties = properties.filter(p => showDeleted || !p.isDeleted);
 
-    const toggleDelete = useCallback((id: string) => {
-        setProperties(prev => prev.map(p =>
-            p.id === id ? {...p, isDeleted: !p.isDeleted} : p
-        ));
-    }, []);
+    const toggleDelete = useCallback((id: string, currentDeleted: boolean) => {
+        toggleDeleteMutation.mutate({id, isDeleted: !currentDeleted});
+    }, [toggleDeleteMutation]);
 
     const renderItem = useCallback(({item}: { item: Property }) => (
         <TouchableOpacity
@@ -66,7 +75,7 @@ const PropertyListScreen = ({navigation}: Props) => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    onPress={() => toggleDelete(item.id)}
+                    onPress={() => toggleDelete(item.id, item.isDeleted)}
                     style={[
                         styles.deleteButton,
                         {backgroundColor: theme.error},
@@ -79,6 +88,20 @@ const PropertyListScreen = ({navigation}: Props) => {
         </TouchableOpacity>
     ), [navigation, toggleDelete, theme, t]);
 
+    if (isError) {
+        return (
+            <View style={[styles.center, {backgroundColor: theme.background}]}>
+                <Text style={{color: theme.text}}>{t('common.error')}</Text>
+                <TouchableOpacity
+                    style={[styles.editButton, {backgroundColor: theme.primary, marginTop: 10}]}
+                    onPress={() => refetch()}
+                >
+                    <Text style={styles.buttonText}>Retry</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
     return (
         <View style={[styles.container, {backgroundColor: theme.background}]}>
             <View style={[styles.filterContainer, {backgroundColor: theme.surface, borderBottomColor: theme.border}]}>
@@ -86,19 +109,22 @@ const PropertyListScreen = ({navigation}: Props) => {
                 <Switch value={showDeleted} onValueChange={setShowDeleted}/>
             </View>
 
-            <View style={[styles.themeToggle, {backgroundColor: theme.surface}]}>
-                <Text style={{color: theme.text}}>{t('common.darkMode') || 'Dark Mode'}</Text>
-                <Switch
-                    value={isDark}
-                    onValueChange={(val) => setMode(val ? 'dark' : 'light')}
-                />
-            </View>
-
             <FlatList
                 data={filteredProperties}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
+                refreshControl={
+                    <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={theme.primary}/>
+                }
+                ListEmptyComponent={
+                    isLoading ? (
+                        <ActivityIndicator size="large" color={theme.primary} style={{marginTop: 20}}/>
+                    ) : (
+                        <Text
+                            style={[styles.emptyText, {color: theme.subtext}]}>{t('common.noData') || 'No properties'}</Text>
+                    )
+                }
             />
 
             <TouchableOpacity
@@ -113,21 +139,13 @@ const PropertyListScreen = ({navigation}: Props) => {
 
 const styles = StyleSheet.create({
     container: {flex: 1},
+    center: {flex: 1, justifyContent: 'center', alignItems: 'center'},
     filterContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: 15,
         borderBottomWidth: 1
-    },
-    themeToggle: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 15,
-        marginTop: 1,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee'
     },
     filterLabel: {fontSize: 14},
     list: {padding: 10},
@@ -154,6 +172,7 @@ const styles = StyleSheet.create({
         elevation: 5
     },
     fabText: {color: '#fff', fontSize: 30, fontWeight: 'bold'},
+    emptyText: {textAlign: 'center', marginTop: 50},
 });
 
 export default PropertyListScreen;
