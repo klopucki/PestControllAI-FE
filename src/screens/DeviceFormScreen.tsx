@@ -56,7 +56,7 @@ const DeviceFormScreen = ({navigation, route}: Props) => {
 
         const deviceData: Partial<Device> = {
             id: device?.id,
-            propertyId,
+            propertyId: propertyId,
             name,
             type,
             imageUri,
@@ -69,7 +69,6 @@ const DeviceFormScreen = ({navigation, route}: Props) => {
     };
 
     const mockPickImage = () => {
-        // TODO: Replace with real image picker
         const mockUris = [
             'https://via.placeholder.com/300x200.png?text=Camera+Capture+1',
             'https://via.placeholder.com/300x200.png?text=Camera+Capture+2',

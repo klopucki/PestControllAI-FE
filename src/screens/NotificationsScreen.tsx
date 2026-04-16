@@ -44,7 +44,7 @@ const NotificationsScreen = ({navigation}: Props) => {
     const handleNotificationPress = (event: DeviceEvent) => {
         const mockDevice: Device = {
             id: event.deviceId,
-            propertyId: '1',
+            propertiesId: '1',
             name: event.deviceName,
             type: 'camera',
             status: event.type === 'alert' ? 'alert' : 'active',

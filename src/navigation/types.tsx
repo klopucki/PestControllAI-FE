@@ -21,7 +21,7 @@ export type DeviceEvent = {
 
 export type Device = {
     id: string;
-    propertyId: string;
+    propertiesId: string;
     name: string;
     type: DeviceType;
     iconName?: string;

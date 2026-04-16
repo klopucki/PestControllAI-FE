@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://10.0.2.2:5028/api';
+const COMMAND_BASE_URL = 'http://10.0.2.2:5078/api';
 
-const apiClient = axios.create({
-    baseURL: BASE_URL,
+const commandApiClient = axios.create({
+    baseURL: COMMAND_BASE_URL,
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
@@ -11,7 +11,7 @@ const apiClient = axios.create({
 });
 
 // TODO: Add request interceptor for JWT token injection here
-apiClient.interceptors.request.use(
+commandApiClient.interceptors.request.use(
     async (config) => {
         // const token = await getAuthToken();
         // if (token) config.headers.Authorization = `Bearer ${token}`; // ??? that easy way ???
@@ -20,4 +20,4 @@ apiClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-export default apiClient;
+export default commandApiClient;

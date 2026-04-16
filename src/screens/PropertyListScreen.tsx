@@ -7,7 +7,8 @@ import {
     Switch,
     Text,
     TouchableOpacity,
-    View
+    View,
+    Modal
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {Property, RootStackParamList} from '../navigation/types';
@@ -27,6 +28,7 @@ const PropertyListScreen = ({navigation}: Props) => {
     const {
         data: properties = [],
         isLoading,
+        isFetching,
         isError,
         refetch
     } = useQuery({
@@ -37,8 +39,9 @@ const PropertyListScreen = ({navigation}: Props) => {
     const toggleDeleteMutation = useMutation({
         mutationFn: ({id, isDeleted}: { id: string, isDeleted: boolean }) =>
             propertyApi.updateStatus(id, isDeleted),
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ['properties']});
+        onSuccess: async () => {
+            // TODO: Consider adding a small delay if CQRS Read Model is very slow
+            await queryClient.invalidateQueries({queryKey: ['properties']});
         }
     });
 
@@ -76,17 +79,19 @@ const PropertyListScreen = ({navigation}: Props) => {
 
                 <TouchableOpacity
                     onPress={() => toggleDelete(item.id, item.isDeleted)}
+                    disabled={toggleDeleteMutation.isPending}
                     style={[
                         styles.deleteButton,
                         {backgroundColor: theme.error},
-                        item.isDeleted && styles.restoreButton
+                        item.isDeleted && styles.restoreButton,
+                        toggleDeleteMutation.isPending && { opacity: 0.5 }
                     ]}
                 >
                     <Text style={styles.buttonText}>{item.isDeleted ? t('common.restore') : t('common.delete')}</Text>
                 </TouchableOpacity>
             </View>
         </TouchableOpacity>
-    ), [navigation, toggleDelete, theme, t]);
+    ), [navigation, toggleDelete, theme, t, toggleDeleteMutation.isPending]);
 
     if (isError) {
         return (
@@ -104,6 +109,16 @@ const PropertyListScreen = ({navigation}: Props) => {
 
     return (
         <View style={[styles.container, {backgroundColor: theme.background}]}>
+            {/* Full screen loader for initial fetch or CQRS sync */}
+            <Modal transparent visible={isFetching && properties.length === 0} animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.loaderCard, { backgroundColor: theme.surface }]}>
+                        <ActivityIndicator size="large" color={theme.primary} />
+                        <Text style={[styles.loaderText, { color: theme.text }]}>Syncing data...</Text>
+                    </View>
+                </View>
+            </Modal>
+
             <View style={[styles.filterContainer, {backgroundColor: theme.surface, borderBottomColor: theme.border}]}>
                 <Text style={[styles.filterLabel, {color: theme.text}]}>{t('property.show_deleted')}</Text>
                 <Switch value={showDeleted} onValueChange={setShowDeleted}/>
@@ -115,14 +130,11 @@ const PropertyListScreen = ({navigation}: Props) => {
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
                 refreshControl={
-                    <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={theme.primary}/>
+                    <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={theme.primary}/>
                 }
                 ListEmptyComponent={
-                    isLoading ? (
-                        <ActivityIndicator size="large" color={theme.primary} style={{marginTop: 20}}/>
-                    ) : (
-                        <Text
-                            style={[styles.emptyText, {color: theme.subtext}]}>{t('common.noData') || 'No properties'}</Text>
+                    !isFetching && (
+                        <Text style={[styles.emptyText, {color: theme.subtext}]}>{t('common.noData')}</Text>
                     )
                 }
             />
@@ -140,6 +152,22 @@ const PropertyListScreen = ({navigation}: Props) => {
 const styles = StyleSheet.create({
     container: {flex: 1},
     center: {flex: 1, justifyContent: 'center', alignItems: 'center'},
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    loaderCard: {
+        padding: 30,
+        borderRadius: 15,
+        alignItems: 'center',
+        elevation: 5
+    },
+    loaderText: {
+        marginTop: 15,
+        fontWeight: 'bold'
+    },
     filterContainer: {
         flexDirection: 'row',
         alignItems: 'center',

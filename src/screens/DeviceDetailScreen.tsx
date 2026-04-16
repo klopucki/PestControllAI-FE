@@ -1,7 +1,7 @@
 import React, {useCallback} from 'react';
 import {ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Switch, Text, View} from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {DeviceEvent, RootStackParamList} from '../navigation/types';
+import {Device, DeviceEvent, RootStackParamList} from '../navigation/types';
 import {useTheme} from '../context/ThemeContext';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {deviceApi} from '../api/deviceApi';
@@ -10,16 +10,24 @@ import {useTranslation} from 'react-i18next';
 type Props = NativeStackScreenProps<RootStackParamList, 'DeviceDetail'>;
 
 const DeviceDetailScreen = ({route, navigation}: Props) => {
-    const {device} = route.params;
+    const {device: initialDevice} = route.params;
     const {theme} = useTheme();
     const {t} = useTranslation();
     const queryClient = useQueryClient();
 
+    const { data: device = initialDevice } = useQuery({
+        queryKey: ['device', initialDevice.id],
+        queryFn: () => deviceApi.getByPropertyId(initialDevice.propertyId).then(list =>
+            list.find(d => d.id === initialDevice.id) || initialDevice
+        ),
+        initialData: initialDevice,
+        staleTime: 5000 // Treat data as fresh for 5s to prevent immediate flickering
+    });
+
     const {
         data: events = [],
-        isLoading,
-        isError,
-        refetch
+        isLoading: isEventsLoading,
+        refetch: refetchEvents
     } = useQuery({
         queryKey: ['deviceEvents', device.id],
         queryFn: () => deviceApi.getEvents(device.id),
@@ -27,8 +35,29 @@ const DeviceDetailScreen = ({route, navigation}: Props) => {
 
     const listeningMutation = useMutation({
         mutationFn: (isListening: boolean) => deviceApi.updateListening(device.id, isListening),
-        onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ['devices']});
+        // OPTIMISTIC UPDATE: Update UI before server responds
+        onMutate: async (newIsListening) => {
+            await queryClient.cancelQueries({ queryKey: ['device', device.id] });
+            const previousDevice = queryClient.getQueryData(['device', device.id]);
+
+            // Manually update the cache
+            queryClient.setQueryData(['device', device.id], (old: Device) => ({
+                ...old,
+                isListening: newIsListening
+            }));
+
+            return { previousDevice };
+        },
+        onError: (err, newIsListening, context) => {
+            // Rollback if error occurs
+            if (context?.previousDevice) {
+                queryClient.setQueryData(['device', device.id], context.previousDevice);
+            }
+        },
+        onSettled: () => {
+            // Refetch after everything is done to ensure data consistency
+            queryClient.invalidateQueries({ queryKey: ['device', device.id] });
+            queryClient.invalidateQueries({ queryKey: ['devices'] });
         }
     });
 
@@ -41,8 +70,8 @@ const DeviceDetailScreen = ({route, navigation}: Props) => {
             <View style={styles.eventHeader}>
                 <Text style={[styles.eventTime, {color: theme.subtext}]}>{item.timestamp}</Text>
                 <Text
-                    style={[styles.eventType, {color: theme.primary}, item.eventType === 'alert' && {color: theme.error}]}>
-                    {item.eventType.toUpperCase()}
+                    style={[styles.eventType, {color: theme.primary}, item.type === 'alert' && {color: theme.error}]}>
+                    {item.type.toUpperCase()}
                 </Text>
             </View>
             <Text style={[styles.eventDesc, {color: theme.text}]}>{item.description}</Text>
@@ -84,7 +113,7 @@ const DeviceDetailScreen = ({route, navigation}: Props) => {
                                     <Text style={[styles.controlSub, {color: theme.subtext}]}>Push Notifications</Text>
                                 </View>
                                 <Switch
-                                    value={listeningMutation.isPending ? !device.isListening : device.isListening}
+                                    value={device.isListening}
                                     onValueChange={toggleListening}
                                     trackColor={{false: "#767577", true: theme.secondary}}
                                     disabled={listeningMutation.isPending}
@@ -109,14 +138,13 @@ const DeviceDetailScreen = ({route, navigation}: Props) => {
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContent}
                 refreshControl={
-                    <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={theme.primary}/>
+                    <RefreshControl refreshing={isEventsLoading} onRefresh={refetchEvents} tintColor={theme.primary}/>
                 }
                 ListEmptyComponent={
-                    isLoading ? (
+                    isEventsLoading ? (
                         <ActivityIndicator size="large" color={theme.primary} style={{marginTop: 20}}/>
                     ) : (
-                        <Text style={{textAlign: 'center', color: theme.subtext, marginTop: 20}}>No events
-                            recorded</Text>
+                        <Text style={{textAlign: 'center', color: theme.subtext, marginTop: 20}}>No events recorded</Text>
                     )
                 }
             />
