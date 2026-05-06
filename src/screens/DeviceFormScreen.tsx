@@ -56,7 +56,7 @@ const DeviceFormScreen = ({navigation, route}: Props) => {
 
         const deviceData: Partial<Device> = {
             id: device?.id,
-            propertyId: propertyId,
+            propertiesId: propertyId,
             name,
             type,
             imageUri,

@@ -17,6 +17,7 @@ export const deviceApi = {
         baseApi.patch(`${ENDPOINT}/listening`, {id, isListening}),
 
     save: (device: Partial<Device>) => {
+        console.log(device);
         if (device.id && !device.id.includes('.')) {
             return baseApi.put(`${ENDPOINT}`, device);
         }

@@ -32,6 +32,19 @@ export type Device = {
     lastCaptureDate?: string;
 };
 
+export type Statistics = {
+    id: string;
+    propertiesId: string;
+    deviceId?: string;
+    totalDetections: number;
+    alertsLastWeek: number;
+    mostActiveTime: string;
+    activityByDay: number[];
+    detectionAccuracy: number;
+    responseTime: number;
+    hint: string;
+};
+
 export type RootStackParamList = {
     Login: undefined;
     Register: undefined;

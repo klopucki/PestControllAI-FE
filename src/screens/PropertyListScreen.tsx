@@ -33,7 +33,7 @@ const PropertyListScreen = ({navigation}: Props) => {
         refetch
     } = useQuery({
         queryKey: ['properties'],
-        queryFn: propertyApi.getAll,
+        queryFn: propertyApi.getAll,  // fixme getByUserId
     });
 
     const toggleDeleteMutation = useMutation({
